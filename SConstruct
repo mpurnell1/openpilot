@@ -191,14 +191,21 @@ common = [_common, 'json11', 'zmq']
 Export('common')
 
 # Build messaging (cereal + msgq + socketmaster + their dependencies)
-# Enable swaglog include in submodules
-env_swaglog = env.Clone()
-env_swaglog['CXXFLAGS'].append('-DSWAGLOG="\\"common/swaglog.h\\""')
-SConscript(['msgq_repo/SConscript'], exports={'env': env_swaglog})
+# Build msgq via its own build system (produces .a libs and Cython .so bindings)
+msgq_repo = Dir('#msgq_repo')
+libmsgq = File('#msgq_repo/libmsgq.a')
+libvisionipc = File('#msgq_repo/libvisionipc.a')
+msgq_python = File('#msgq_repo/msgq/ipc_pyx.so')
+env.Command([libmsgq, libvisionipc, msgq_python], [], f'cd {msgq_repo.abspath} && python build.py')
+env.AlwaysBuild(libmsgq)
+
+msgq = libmsgq
+visionipc = libvisionipc
+Export('msgq', 'visionipc', 'msgq_python')
 
 SConscript(['cereal/SConscript'])
 
-Import('socketmaster', 'msgq')
+Import('socketmaster')
 messaging = [socketmaster, msgq, 'capnp', 'kj',]
 Export('messaging')
 
