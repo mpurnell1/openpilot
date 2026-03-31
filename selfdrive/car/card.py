@@ -86,6 +86,22 @@ class Car:
 
     self.can_callbacks = can_comm_callbacks(self.can_sock, self.pm.sock['sendcan'])
 
+    # LKAS_ANGLE EyeSight rejects CommunicationControl while engine is running.
+    # Disable ASAP using cached params, before engine starts.
+    if self.params.get_bool("AlphaLongitudinalEnabled"):
+      cached_raw = self.params.get("CarParamsCache")
+      if cached_raw is not None:
+        try:
+          with car.CarParams.from_bytes(cached_raw) as cp:
+            from opendbc.car.subaru.values import SubaruFlags, GLOBAL_ES_ADDR
+            if cp.flags & SubaruFlags.LKAS_ANGLE and cp.flags & SubaruFlags.DISABLE_EYESIGHT:
+              from opendbc.car.disable_ecu import disable_ecu
+              from opendbc.car import uds
+              comm = bytes([uds.SERVICE_TYPE.COMMUNICATION_CONTROL, uds.CONTROL_TYPE.DISABLE_RX_DISABLE_TX, uds.MESSAGE_TYPE.NORMAL])
+              disable_ecu(self.can_callbacks[0], self.can_callbacks[1], bus=2, addr=GLOBAL_ES_ADDR, com_cont_req=comm)
+        except Exception:
+          pass
+
     is_release = self.params.get_bool("IsReleaseBranch")
     is_release_sp = self.params.get_bool("IsReleaseSpBranch")
 
@@ -108,25 +124,6 @@ class Car:
 
       fixed_fingerprint = (self.params.get("CarPlatformBundle") or {}).get("platform", None)
       init_params_list_sp = sunnypilot_interfaces.initialize_params(self.params)
-
-      # LKAS_ANGLE EyeSight rejects CommunicationControl while engine is running.
-      # If we know this is a Subaru LKAS_ANGLE from cached params, disable EyeSight NOW
-      # while the engine is still off (ignition on, pre-crank window).
-      print(f"EARLY DISABLE CHECK: cached={cached_params is not None} alpha={alpha_long_allowed}")
-      if cached_params is not None and alpha_long_allowed:
-        try:
-          from opendbc.car.subaru.values import SubaruFlags, GLOBAL_ES_ADDR
-          flags = cached_params.flags
-          print(f"EARLY DISABLE CHECK: flags=0x{flags:X} LKAS={bool(flags & SubaruFlags.LKAS_ANGLE)} DISABLE_ES={bool(flags & SubaruFlags.DISABLE_EYESIGHT)}")
-          if flags & SubaruFlags.LKAS_ANGLE and flags & SubaruFlags.DISABLE_EYESIGHT:
-            print("EARLY EYESIGHT DISABLE: attempting...")
-            from opendbc.car.disable_ecu import disable_ecu
-            from opendbc.car import uds
-            comm_ctrl = bytes([uds.SERVICE_TYPE.COMMUNICATION_CONTROL, uds.CONTROL_TYPE.DISABLE_RX_DISABLE_TX, uds.MESSAGE_TYPE.NORMAL])
-            result = disable_ecu(self.can_callbacks[0], self.can_callbacks[1], bus=2, addr=GLOBAL_ES_ADDR, com_cont_req=comm_ctrl)
-            print(f"EARLY EYESIGHT DISABLE: {'SUCCESS' if result else 'FAILED'}")
-        except Exception as e:
-          print(f"EARLY DISABLE ERROR: {e}")
 
       self.CI = get_car(*self.can_callbacks, obd_callback(self.params), alpha_long_allowed, is_release, num_pandas, cached_params,
                         fixed_fingerprint, init_params_list_sp, is_release_sp)
