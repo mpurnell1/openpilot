@@ -112,15 +112,21 @@ class Car:
       # LKAS_ANGLE EyeSight rejects CommunicationControl while engine is running.
       # If we know this is a Subaru LKAS_ANGLE from cached params, disable EyeSight NOW
       # while the engine is still off (ignition on, pre-crank window).
+      print(f"EARLY DISABLE CHECK: cached={cached_params is not None} alpha={alpha_long_allowed}")
       if cached_params is not None and alpha_long_allowed:
-        from opendbc.car.subaru.values import SubaruFlags, GLOBAL_ES_ADDR
-        if cached_params.flags & SubaruFlags.LKAS_ANGLE and cached_params.flags & SubaruFlags.DISABLE_EYESIGHT:
-          print("EARLY EYESIGHT DISABLE: attempting pre-engine disable_ecu...")
-          from opendbc.car.disable_ecu import disable_ecu
-          from opendbc.car import uds
-          comm_ctrl = bytes([uds.SERVICE_TYPE.COMMUNICATION_CONTROL, uds.CONTROL_TYPE.DISABLE_RX_DISABLE_TX, uds.MESSAGE_TYPE.NORMAL])
-          result = disable_ecu(self.can_callbacks[0], self.can_callbacks[1], bus=2, addr=GLOBAL_ES_ADDR, com_cont_req=comm_ctrl)
-          print(f"EARLY EYESIGHT DISABLE: {'SUCCESS' if result else 'FAILED'}")
+        try:
+          from opendbc.car.subaru.values import SubaruFlags, GLOBAL_ES_ADDR
+          flags = cached_params.flags
+          print(f"EARLY DISABLE CHECK: flags=0x{flags:X} LKAS={bool(flags & SubaruFlags.LKAS_ANGLE)} DISABLE_ES={bool(flags & SubaruFlags.DISABLE_EYESIGHT)}")
+          if flags & SubaruFlags.LKAS_ANGLE and flags & SubaruFlags.DISABLE_EYESIGHT:
+            print("EARLY EYESIGHT DISABLE: attempting...")
+            from opendbc.car.disable_ecu import disable_ecu
+            from opendbc.car import uds
+            comm_ctrl = bytes([uds.SERVICE_TYPE.COMMUNICATION_CONTROL, uds.CONTROL_TYPE.DISABLE_RX_DISABLE_TX, uds.MESSAGE_TYPE.NORMAL])
+            result = disable_ecu(self.can_callbacks[0], self.can_callbacks[1], bus=2, addr=GLOBAL_ES_ADDR, com_cont_req=comm_ctrl)
+            print(f"EARLY EYESIGHT DISABLE: {'SUCCESS' if result else 'FAILED'}")
+        except Exception as e:
+          print(f"EARLY DISABLE ERROR: {e}")
 
       self.CI = get_car(*self.can_callbacks, obd_callback(self.params), alpha_long_allowed, is_release, num_pandas, cached_params,
                         fixed_fingerprint, init_params_list_sp, is_release_sp)
