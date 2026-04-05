@@ -47,7 +47,7 @@ def _sine_action(amplitude, period, duration):
   return Action(a.tolist(), t.tolist())
 
 
-MANEUVERS = [
+STOCK_MANEUVERS = [
   Maneuver(
     "step right 20mph",
     [Action([0.5], [1.0]), Action([-0.5], [1.5])],
@@ -85,6 +85,42 @@ MANEUVERS = [
     initial_speed=30. * CV.MPH_TO_MS,
   ),
 ]
+
+# EPS fault characterization: sustained loads at escalating amplitudes
+FAULT_TEST_MANEUVERS = [
+  Maneuver(
+    "fault: sustained 1.5 m/s^2 20s",
+    [Action([1.5], [20.0]), Action([0.0], [2.0])],
+    repeat=0,
+    initial_speed=20. * CV.MPH_TO_MS,
+  ),
+  Maneuver(
+    "fault: sustained 2.0 m/s^2 20s",
+    [Action([2.0], [20.0]), Action([0.0], [2.0])],
+    repeat=0,
+    initial_speed=20. * CV.MPH_TO_MS,
+  ),
+  Maneuver(
+    "fault: sustained 2.5 m/s^2 20s",
+    [Action([2.5], [20.0]), Action([0.0], [2.0])],
+    repeat=0,
+    initial_speed=20. * CV.MPH_TO_MS,
+  ),
+  Maneuver(
+    "fault: sustained 3.0 m/s^2 20s",
+    [Action([3.0], [20.0]), Action([0.0], [2.0])],
+    repeat=0,
+    initial_speed=20. * CV.MPH_TO_MS,
+  ),
+  Maneuver(
+    "fault: sustained 3.5 m/s^2 20s",
+    [Action([3.5], [20.0]), Action([0.0], [2.0])],
+    repeat=0,
+    initial_speed=20. * CV.MPH_TO_MS,
+  ),
+]
+
+MANEUVERS = STOCK_MANEUVERS + FAULT_TEST_MANEUVERS
 
 
 def main():
